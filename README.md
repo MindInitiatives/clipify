@@ -101,7 +101,3 @@ Here’s an example demonstrating how to use Clipify in a browser-based project:
 ## License
 
 Clipify is open source and available under the [MIT License](LICENSE).
-
----
-
-Feel free to adjust the content based on your specific implementation or add additional features as needed!
