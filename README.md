@@ -21,7 +21,7 @@ npm install clipify
 Alternatively, you can use it directly in your browser via a CDN:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/clipify/dist/clipify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/clipify@1.0.0"></script>
 ```
 
 ## Usage
@@ -79,7 +79,7 @@ Here’s an example demonstrating how to use Clipify in a browser-based project:
   <button id="store-btn">Store Clipboard</button>
   <button id="retrieve-btn">Retrieve Clipboard</button>
   
-  <script src="https://cdn.jsdelivr.net/npm/clipify/dist/clipify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clipify@1.0.0"></script>
   <script>
     const clipify = new Clipify();
 
