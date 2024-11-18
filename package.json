@@ -1,12 +1,12 @@
 {
   "name": "clipify",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A JavaScript library for managing multiple clipboard slots with enhanced functionality.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -14,9 +14,20 @@
   },
   "author": "Stephen Oloto",
   "license": "MIT",
-  "keywords": ["clipboard", "javascript", "typescript", "library"],
-  "files": ["dist/**/*"],
+  "keywords": [
+    "clipboard",
+    "javascript",
+    "typescript",
+    "library"
+  ],
+  "files": [
+    "dist/**/*"
+  ],
   "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   }
 }
