@@ -16,22 +16,40 @@ class Clipify {
     }
     /**
      * Copies text to the clipboard and stores it in the clipboard history.
-     * @param {string} text - The text to copy.
-     * @param {number} [expiryTime] - Optional expiry time in milliseconds.
+     * @param {ClipboardOptions} options - The options for copy.
      */
-    copy(text, expiryTime) {
+    copy(options) {
         return __awaiter(this, void 0, void 0, function* () {
+            const { text, expiryTime, key } = options;
+            if (!text) {
+                throw new Error("Text is required to copy to clipboard.");
+            }
             if (!navigator.clipboard) {
-                throw new Error('Clipboard API not supported in this browser.');
+                throw new Error("Clipboard API not supported in this browser.");
             }
             try {
                 yield navigator.clipboard.writeText(text);
-                this.addToHistory(text, expiryTime);
-                this.notifyListeners('copy', text);
-                console.log(`Copied to clipboard: ${text}`);
+                this.addToHistory({ text, key }, expiryTime);
+                this.notifyListeners("copy", text);
             }
             catch (err) {
-                console.error('Failed to copy text:', err);
+                console.error("Failed to copy text:", err);
+            }
+        });
+    }
+    /**
+     * Copies a file (image, document) to the clipboard and stores it in history.
+     * @param {Blob} file - The file to copy.
+     * @param {string} [key] - Optional key to identify the clipboard item.
+     */
+    copyFile(file, key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                this.addToHistory({ file, key });
+                console.log("File added to clipboard history.");
+            }
+            catch (err) {
+                console.error("Failed to copy file:", err);
             }
         });
     }
@@ -42,30 +60,33 @@ class Clipify {
     paste() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!navigator.clipboard) {
-                throw new Error('Clipboard API not supported in this browser.');
+                throw new Error("Clipboard API not supported in this browser.");
             }
             try {
                 const text = yield navigator.clipboard.readText();
-                console.log(`Pasted from clipboard: ${text}`);
                 return text;
             }
             catch (err) {
-                console.error('Failed to paste text:', err);
                 throw err;
             }
         });
     }
     /**
-     * Adds text to the clipboard history and sets an expiry if specified.
-     * @param {string} text - The text to store.
+     * Adds a clipboard item to history.
+     * @param {Partial<ClipboardItem>} item - The clipboard item to store.
      * @param {number} [expiryTime] - Expiry time in milliseconds.
      */
-    addToHistory(text, expiryTime) {
-        const item = { text, timestamp: Date.now() };
-        this.clipboardHistory.push(item);
+    addToHistory(item, expiryTime) {
+        const fullItem = {
+            key: item.key,
+            text: item.text,
+            file: item.file,
+            timestamp: Date.now(),
+        };
+        this.clipboardHistory.push(fullItem);
         if (expiryTime) {
             setTimeout(() => {
-                this.removeExpiredItem(item);
+                this.removeExpiredItem(fullItem);
             }, expiryTime);
         }
     }
@@ -75,17 +96,17 @@ class Clipify {
      */
     removeExpiredItem(item) {
         this.clipboardHistory = this.clipboardHistory.filter((historyItem) => historyItem !== item);
-        this.notifyListeners('expire', item.text);
-        console.log(`Expired clipboard item removed: ${item.text}`);
+        this.notifyListeners("expire", item.text || "");
+        console.log(`Expired clipboard item removed: ${item.text || item.key}`);
     }
     /**
-     * Retrieves clipboard history or a specific item by index.
-     * @param {number} [index] - Optional index to retrieve a specific item.
+     * Retrieves clipboard history or a specific item by key.
+     * @param {string} [key] - Optional key to retrieve a specific item.
      * @returns {ClipboardItem | ClipboardItem[]} - Full history or a specific clipboard item.
      */
-    getHistory(index) {
-        if (index !== undefined) {
-            return this.clipboardHistory[index] || null;
+    getHistory(key) {
+        if (key) {
+            return this.clipboardHistory.find((item) => item.key === key) || [];
         }
         return [...this.clipboardHistory];
     }
@@ -104,7 +125,7 @@ class Clipify {
     /**
      * Notifies event listeners of clipboard changes.
      * @param {string} event - Event type.
-     * @param {string} data - Event data.
+     * @param {string | Blob} data - Event data.
      */
     notifyListeners(event, data) {
         const listeners = this.eventListeners.get(event);
@@ -117,7 +138,6 @@ class Clipify {
      */
     clearHistory() {
         this.clipboardHistory = [];
-        console.log('Clipboard history cleared.');
     }
     /**
      * Checks if clipboard access is supported.

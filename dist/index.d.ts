@@ -1,26 +1,38 @@
 type ClipboardItem = {
-    text: string;
+    key?: string;
+    text?: string;
+    file?: Blob;
     timestamp: number;
 };
-type ClipboardEventListener = (data: string) => void;
+type ClipboardEventListener = (data: string | Blob) => void;
+type ClipboardOptions = {
+    text: string;
+    expiryTime?: number;
+    key?: string;
+};
 declare class Clipify {
     private clipboardHistory;
     private eventListeners;
     constructor();
     /**
      * Copies text to the clipboard and stores it in the clipboard history.
-     * @param {string} text - The text to copy.
-     * @param {number} [expiryTime] - Optional expiry time in milliseconds.
+     * @param {ClipboardOptions} options - The options for copy.
      */
-    copy(text: string, expiryTime?: number): Promise<void>;
+    copy(options: ClipboardOptions): Promise<void>;
+    /**
+     * Copies a file (image, document) to the clipboard and stores it in history.
+     * @param {Blob} file - The file to copy.
+     * @param {string} [key] - Optional key to identify the clipboard item.
+     */
+    copyFile(file: Blob, key?: string): Promise<void>;
     /**
      * Reads the most recent text from the clipboard.
      * @returns {Promise<string>} - The most recent clipboard text.
      */
     paste(): Promise<string>;
     /**
-     * Adds text to the clipboard history and sets an expiry if specified.
-     * @param {string} text - The text to store.
+     * Adds a clipboard item to history.
+     * @param {Partial<ClipboardItem>} item - The clipboard item to store.
      * @param {number} [expiryTime] - Expiry time in milliseconds.
      */
     private addToHistory;
@@ -30,11 +42,11 @@ declare class Clipify {
      */
     private removeExpiredItem;
     /**
-     * Retrieves clipboard history or a specific item by index.
-     * @param {number} [index] - Optional index to retrieve a specific item.
+     * Retrieves clipboard history or a specific item by key.
+     * @param {string} [key] - Optional key to retrieve a specific item.
      * @returns {ClipboardItem | ClipboardItem[]} - Full history or a specific clipboard item.
      */
-    getHistory(index?: number): ClipboardItem | ClipboardItem[];
+    getHistory(key?: string): ClipboardItem | ClipboardItem[];
     /**
      * Adds an event listener for clipboard events.
      * @param {string} event - Event type ('copy', 'expire').
@@ -44,7 +56,7 @@ declare class Clipify {
     /**
      * Notifies event listeners of clipboard changes.
      * @param {string} event - Event type.
-     * @param {string} data - Event data.
+     * @param {string | Blob} data - Event data.
      */
     private notifyListeners;
     /**
