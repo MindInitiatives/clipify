@@ -153,8 +153,8 @@ Here’s an example demonstrating how to use Clipify in a browser-based project:
   <title>clipify Example</title>
 </head>
 <body>
-  <button id="store-btn">Store Clipboard</button>
-  <button id="retrieve-btn">Retrieve Clipboard</button>
+  <button id="copy-btn">Store Clipboard</button>
+  <button id="history-btn">Retrieve Clipboard</button>
   
   <script src="https://cdn.jsdelivr.net/npm/clipify@1.1.0"></script>
   <script>
@@ -186,13 +186,9 @@ Clipify uses the [Clipboard API](https://developer.mozilla.org/en-US/docs/Web/AP
 ---
 
 ## Contributions
-Contributions, issues, and feature requests are welcome! Please submit them via [GitHub Issues](https://github.com/your-repo/clipify/issues).
+Contributions, issues, and feature requests are welcome! Please submit them via [GitHub Issues](https://github.com/MindInitiatives/clipify/issues).
 
 ---
 
 ## License
-Clipify is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-Feel free to enhance this README further based on your project specifics or hosting platform. Let me know if you need help refining any section!
+Clipify is licensed under the [MIT License](https://opensource.org/licenses/MIT) - see the [`LICENSE`](https://github.com/MindInitiatives/clipify/blob/main/LICENSE) file for details.
