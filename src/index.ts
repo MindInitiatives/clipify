@@ -268,16 +268,12 @@ class Clipify {
   /**
    * Clears the clipboard history.
    *
-   * 1.2.0: by default this now preserves pinned items (the whole point of
-   * pinning). Pass `{ includePinned: true }` to wipe everything, matching the
-   * old unconditional behaviour.
+   * Behaviour is unchanged from 1.1.x: this clears the entire history,
+   * including pinned items. Pinning protects items from *expiry*, not from an
+   * explicit `clearHistory()` call. (Pin-aware clearing is planned for 2.0.0.)
    */
-  clearHistory(options?: { includePinned?: boolean }): void {
-    if (options?.includePinned) {
-      this.clipboardHistory = [];
-      return;
-    }
-    this.clipboardHistory = this.clipboardHistory.filter((i) => i.pinned);
+  clearHistory(): void {
+    this.clipboardHistory = [];
   }
 
   /** Checks if the system clipboard API is supported. */

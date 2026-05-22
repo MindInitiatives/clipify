@@ -20,7 +20,7 @@ tags** - without breaking any existing API.
 - **Tag Items:** Group and filter items with freeform tags. *(new in 1.2.0)*
 - **Expiry Management:** Automatically remove clipboard items after a specified expiry time.
 - **Event Handling:** Listen for clipboard events like `copy` or `expire`.
-- **Clear History:** Easily clear stored clipboard history (pinned items preserved by default).
+- **Clear History:** Easily clear all stored clipboard history.
 - **SSR / Node Safe:** Import and use on the server without crashing. *(new in 1.2.0)*
 - **Browser Compatibility Check:** Detect clipboard API support in the browser.
 
@@ -117,9 +117,11 @@ const workItems = clipboard.getByTag("work");
 #### Clear Clipboard History
 
 ```ts
-clipboard.clearHistory();                      // keeps pinned items
-clipboard.clearHistory({ includePinned: true }); // wipes everything
+clipboard.clearHistory(); // clears everything
 ```
+
+Note: pinning protects an item from *expiry*, not from an explicit
+`clearHistory()` call. Pin-aware clearing is planned for 2.0.0.
 
 #### Add Event Listeners
 
