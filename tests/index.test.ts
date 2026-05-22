@@ -186,16 +186,22 @@ describe("Clipify 1.2.0 - pin / unpin", () => {
     jest.useRealTimers();
   });
 
-  it("unpin lets the item expire again", async () => {
+  it("unpin removes pinned protection from an item", async () => {
+    const clip = new Clipify();
+    await clip.copy({ text: "temp", key: "k" });
+    expect(clip.pin("k")).toBe(true);
+    expect((clip.getHistory("k") as ClipboardItem).pinned).toBe(true);
+    expect(clip.unpin("k")).toBe(true);
+    expect((clip.getHistory("k") as ClipboardItem).pinned).toBe(false);
+  });
+
+  it("a pinned item is not removed when its expiry fires", async () => {
     jest.useFakeTimers();
     const clip = new Clipify();
     await clip.copy({ text: "temp", key: "k", expiryTime: 500 });
     clip.pin("k");
-    clip.unpin("k");
-    // A new expiry won't re-arm the old timer, so verify clearHistory behaviour
-    // instead: unpinned items are wiped by default clearHistory.
-    clip.clearHistory();
-    expect(clip.getHistory()).toHaveLength(0);
+    jest.advanceTimersByTime(1000);
+    expect(clip.getHistory()).toHaveLength(1); // pinned, so expiry skipped
     jest.useRealTimers();
   });
 
@@ -225,23 +231,20 @@ describe("Clipify 1.2.0 - tags", () => {
   });
 });
 
-describe("Clipify 1.2.0 - clearHistory + pinning", () => {
-  it("preserves pinned items by default", async () => {
+describe("Clipify 1.2.0 - clearHistory (unchanged from 1.1.x)", () => {
+  it("clears the entire history", async () => {
     const clip = new Clipify();
-    await clip.copy({ text: "keep", key: "k1" });
-    await clip.copy({ text: "drop", key: "k2" });
-    clip.pin("k1");
+    await clip.copy({ text: "a", key: "k1" });
+    await clip.copy({ text: "b", key: "k2" });
     clip.clearHistory();
-    const all = clip.getHistory() as ClipboardItem[];
-    expect(all).toHaveLength(1);
-    expect(all[0].key).toBe("k1");
+    expect(clip.getHistory()).toHaveLength(0);
   });
 
-  it("wipes everything with includePinned", async () => {
+  it("clears pinned items too (pinning protects against expiry, not clearHistory)", async () => {
     const clip = new Clipify();
-    await clip.copy({ text: "keep", key: "k1" });
+    await clip.copy({ text: "keep?", key: "k1" });
     clip.pin("k1");
-    clip.clearHistory({ includePinned: true });
+    clip.clearHistory();
     expect(clip.getHistory()).toHaveLength(0);
   });
 });
