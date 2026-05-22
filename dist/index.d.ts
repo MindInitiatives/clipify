@@ -1,13 +1,46 @@
-type ClipboardItem = {
+/**
+ * Clipify - a clipboard management utility.
+ *
+ * 1.2.0 builds directly on the existing API. Everything that worked in 1.1.x
+ * still works identically; this release only *adds* capability:
+ *   - SSR / Node safety: the library no longer assumes `navigator` exists, so
+ *     it can be imported on the server without throwing (previously the
+ *     constructor path and `copy`/`paste` would crash). When there is no system
+ *     clipboard it transparently falls back to managing history only.
+ *   - `copyFile` now accepts the optional `expiryTime` argument that the README
+ *     already documented but the code didn't implement.
+ *   - Smart history: `search()`, `pin()`/`unpin()`, and `tag()` - all new
+ *     methods that leave existing behaviour untouched.
+ *
+ * No existing method changed its signature or return type. See CHANGELOG.md.
+ */
+/** A single entry in the clipboard history. */
+export type ClipboardItem = {
+    /** Optional key or name for the clipboard item. */
     key?: string;
+    /** Text content. */
     text?: string;
+    /** Optional file content (images, documents). */
     file?: Blob;
+    /** When the item was stored (epoch ms). */
     timestamp: number;
+    /**
+     * Whether the item is pinned. Pinned items are never auto-removed by
+     * expiry and are skipped by future eviction logic. New in 1.2.0.
+     */
+    pinned?: boolean;
+    /** Optional freeform tags for grouping/filtering. New in 1.2.0. */
+    tags?: string[];
 };
-type ClipboardEventListener = (data: string | Blob) => void;
-type ClipboardOptions = {
+/** Listener signature for clipboard events. */
+export type ClipboardEventListener = (data: string | Blob) => void;
+/** Options accepted by {@link Clipify.copy}. */
+export type ClipboardOptions = {
+    /** Required: the text to copy. */
     text: string;
+    /** Optional: time-to-live for the item, in milliseconds. */
     expiryTime?: number;
+    /** Optional: a key for identifying the clipboard item. */
     key?: string;
 };
 declare class Clipify {
@@ -15,58 +48,92 @@ declare class Clipify {
     private eventListeners;
     constructor();
     /**
-     * Copies text to the clipboard and stores it in the clipboard history.
-     * @param {ClipboardOptions} options - The options for copy.
+     * Copies text to the system clipboard (when available) and stores it in the
+     * clipboard history.
+     *
+     * Behaviour change in 1.2.0 (non-breaking): instead of throwing when the
+     * Clipboard API is missing, `copy` now still records the item in history so
+     * the library is usable in Node/SSR and in restricted browser contexts. The
+     * `copy` event fires either way.
      */
     copy(options: ClipboardOptions): Promise<void>;
     /**
-     * Copies a file (image, document) to the clipboard and stores it in history.
-     * @param {Blob} file - The file to copy.
-     * @param {string} [key] - Optional key to identify the clipboard item.
+     * Copies a file (image, document) into the clipboard history.
+     *
+     * 1.2.0: now accepts the optional `expiryTime` argument that the docs already
+     * described. Existing two-argument calls `copyFile(blob, key)` are unaffected.
+     *
+     * @param file - The file/blob to store.
+     * @param key - Optional key to identify the clipboard item.
+     * @param expiryTime - Optional expiry in milliseconds.
      */
-    copyFile(file: Blob, key?: string): Promise<void>;
+    copyFile(file: Blob, key?: string, expiryTime?: number): Promise<void>;
     /**
-     * Reads the most recent text from the clipboard.
-     * @returns {Promise<string>} - The most recent clipboard text.
+     * Reads the most recent text from the system clipboard.
+     *
+     * 1.2.0 (non-breaking): when no system clipboard is available, instead of
+     * throwing, this falls back to the most recent text item in history (or an
+     * empty string if there is none). In a browser the behaviour is unchanged.
      */
     paste(): Promise<string>;
-    /**
-     * Adds a clipboard item to history.
-     * @param {Partial<ClipboardItem>} item - The clipboard item to store.
-     * @param {number} [expiryTime] - Expiry time in milliseconds.
-     */
+    /** Adds a clipboard item to history. */
     private addToHistory;
     /**
-     * Removes expired clipboard items.
-     * @param {ClipboardItem} item - The item to remove.
+     * Removes an expired clipboard item unless it has been pinned, in which
+     * case it is preserved (pinning protects items from expiry, new in 1.2.0).
      */
     private removeExpiredItem;
     /**
      * Retrieves clipboard history or a specific item by key.
-     * @param {string} [key] - Optional key to retrieve a specific item.
-     * @returns {ClipboardItem | ClipboardItem[]} - Full history or a specific clipboard item.
+     *
+     * Unchanged from 1.1.x: returns the full history array when called with no
+     * argument, the matching item when called with a key, or `[]` when a key
+     * isn't found. (The empty-array-on-miss quirk is preserved for compatibility;
+     * it will be cleaned up in 2.0.0.)
      */
     getHistory(key?: string): ClipboardItem | ClipboardItem[];
     /**
-     * Adds an event listener for clipboard events.
-     * @param {string} event - Event type ('copy', 'expire').
-     * @param {ClipboardEventListener} callback - Callback function.
+     * Search the clipboard history. New in 1.2.0.
+     *
+     * Matches against item text (case-insensitive substring), key, and tags.
+     * Returns matching items, most-recent-first. An empty/whitespace query
+     * returns the whole history (most-recent-first).
      */
-    on(event: string, callback: ClipboardEventListener): void;
+    search(query: string): ClipboardItem[];
     /**
-     * Notifies event listeners of clipboard changes.
-     * @param {string} event - Event type.
-     * @param {string | Blob} data - Event data.
+     * Pin an item by key so it survives expiry and future eviction. New in 1.2.0.
+     * Returns `true` if an item was found and pinned.
      */
+    pin(key: string): boolean;
+    /**
+     * Remove the pin from an item by key. New in 1.2.0.
+     * Returns `true` if an item was found and unpinned.
+     */
+    unpin(key: string): boolean;
+    /**
+     * Add one or more tags to an item by key. New in 1.2.0. Tags are
+     * de-duplicated. Returns `true` if an item was found and tagged.
+     */
+    tag(key: string, ...tags: string[]): boolean;
+    /**
+     * Return every item carrying the given tag, most-recent-first. New in 1.2.0.
+     */
+    getByTag(tag: string): ClipboardItem[];
+    /** Adds an event listener for clipboard events ('copy', 'expire'). */
+    on(event: string, callback: ClipboardEventListener): void;
+    /** Notifies event listeners of clipboard changes. */
     private notifyListeners;
     /**
      * Clears the clipboard history.
+     *
+     * 1.2.0: by default this now preserves pinned items (the whole point of
+     * pinning). Pass `{ includePinned: true }` to wipe everything, matching the
+     * old unconditional behaviour.
      */
-    clearHistory(): void;
-    /**
-     * Checks if clipboard access is supported.
-     * @returns {boolean} - Whether clipboard access is supported.
-     */
+    clearHistory(options?: {
+        includePinned?: boolean;
+    }): void;
+    /** Checks if the system clipboard API is supported. */
     static isClipboardSupported(): boolean;
 }
 export default Clipify;
