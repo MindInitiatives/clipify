@@ -1,33 +1,42 @@
 {
   "name": "clipify",
-  "version": "1.1.0",
-  "description": "A JavaScript library for managing multiple clipboard slots with enhanced functionality.",
+  "version": "1.2.0",
+  "description": "A modern TypeScript library for clipboard management: history, expiry, events, search, pinning, and tags. SSR-safe.",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/MindInitiatives/clipify"
-  },
-  "author": "Stephen Oloto",
-  "license": "MIT",
   "keywords": [
     "clipboard",
-    "javascript",
+    "copy",
+    "paste",
+    "clipboard-history",
+    "clipboard-manager",
     "typescript",
-    "library"
+    "ssr"
   ],
-  "files": [
-    "dist/**/*"
-  ],
+  "author": "MindInitiatives",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MindInitiatives/clipify.git"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.14",
+    "@types/node": "^20.17.10",
     "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.7.2"
   }
 }

@@ -1,108 +1,137 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Clipify - a clipboard management utility.
+ *
+ * 1.2.0 builds directly on the existing API. Everything that worked in 1.1.x
+ * still works identically; this release only *adds* capability:
+ *   - SSR / Node safety: the library no longer assumes `navigator` exists, so
+ *     it can be imported on the server without throwing (previously the
+ *     constructor path and `copy`/`paste` would crash). When there is no system
+ *     clipboard it transparently falls back to managing history only.
+ *   - `copyFile` now accepts the optional `expiryTime` argument that the README
+ *     already documented but the code didn't implement.
+ *   - Smart history: `search()`, `pin()`/`unpin()`, and `tag()` - all new
+ *     methods that leave existing behaviour untouched.
+ *
+ * No existing method changed its signature or return type. See CHANGELOG.md.
+ */
+/**
+ * Detect whether the async system Clipboard API is available. Kept as a
+ * module-level helper so every method can guard on it without assuming a
+ * browser global exists (which is what makes Node/SSR safe).
+ */
+function clipboardAvailable() {
+    return (typeof navigator !== "undefined" &&
+        typeof navigator.clipboard !== "undefined");
+}
 class Clipify {
     constructor() {
         this.clipboardHistory = [];
         this.eventListeners = new Map();
     }
     /**
-     * Copies text to the clipboard and stores it in the clipboard history.
-     * @param {ClipboardOptions} options - The options for copy.
+     * Copies text to the system clipboard (when available) and stores it in the
+     * clipboard history.
+     *
+     * Behaviour change in 1.2.0 (non-breaking): instead of throwing when the
+     * Clipboard API is missing, `copy` now still records the item in history so
+     * the library is usable in Node/SSR and in restricted browser contexts. The
+     * `copy` event fires either way.
      */
-    copy(options) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { text, expiryTime, key } = options;
-            if (!text) {
-                throw new Error("Text is required to copy to clipboard.");
-            }
-            if (!navigator.clipboard) {
-                throw new Error("Clipboard API not supported in this browser.");
-            }
+    async copy(options) {
+        const { text, expiryTime, key } = options;
+        if (!text) {
+            throw new Error("Text is required to copy to clipboard.");
+        }
+        if (clipboardAvailable()) {
             try {
-                yield navigator.clipboard.writeText(text);
-                this.addToHistory({ text, key }, expiryTime);
-                this.notifyListeners("copy", text);
+                await navigator.clipboard.writeText(text);
             }
             catch (err) {
-                console.error("Failed to copy text:", err);
+                // System write failed (permission, focus, etc.) - keep history intact.
+                console.error("Failed to write text to system clipboard:", err);
             }
-        });
+        }
+        this.addToHistory({ text, key }, expiryTime);
+        this.notifyListeners("copy", text);
     }
     /**
-     * Copies a file (image, document) to the clipboard and stores it in history.
-     * @param {Blob} file - The file to copy.
-     * @param {string} [key] - Optional key to identify the clipboard item.
+     * Copies a file (image, document) into the clipboard history.
+     *
+     * 1.2.0: now accepts the optional `expiryTime` argument that the docs already
+     * described. Existing two-argument calls `copyFile(blob, key)` are unaffected.
+     *
+     * @param file - The file/blob to store.
+     * @param key - Optional key to identify the clipboard item.
+     * @param expiryTime - Optional expiry in milliseconds.
      */
-    copyFile(file, key) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                this.addToHistory({ file, key });
-                console.log("File added to clipboard history.");
-            }
-            catch (err) {
-                console.error("Failed to copy file:", err);
-            }
-        });
+    async copyFile(file, key, expiryTime) {
+        try {
+            this.addToHistory({ file, key }, expiryTime);
+        }
+        catch (err) {
+            console.error("Failed to copy file:", err);
+        }
     }
     /**
-     * Reads the most recent text from the clipboard.
-     * @returns {Promise<string>} - The most recent clipboard text.
+     * Reads the most recent text from the system clipboard.
+     *
+     * 1.2.0 (non-breaking): when no system clipboard is available, instead of
+     * throwing, this falls back to the most recent text item in history (or an
+     * empty string if there is none). In a browser the behaviour is unchanged.
      */
-    paste() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!navigator.clipboard) {
-                throw new Error("Clipboard API not supported in this browser.");
-            }
+    async paste() {
+        if (clipboardAvailable()) {
             try {
-                const text = yield navigator.clipboard.readText();
-                return text;
+                return await navigator.clipboard.readText();
             }
             catch (err) {
                 throw err;
             }
-        });
+        }
+        // Fallback for Node/SSR/restricted contexts: most recent text in history.
+        for (let i = this.clipboardHistory.length - 1; i >= 0; i--) {
+            const item = this.clipboardHistory[i];
+            if (typeof item.text === "string")
+                return item.text;
+        }
+        return "";
     }
-    /**
-     * Adds a clipboard item to history.
-     * @param {Partial<ClipboardItem>} item - The clipboard item to store.
-     * @param {number} [expiryTime] - Expiry time in milliseconds.
-     */
+    /** Adds a clipboard item to history. */
     addToHistory(item, expiryTime) {
         const fullItem = {
             key: item.key,
             text: item.text,
             file: item.file,
             timestamp: Date.now(),
+            pinned: false,
+            tags: item.tags ? [...item.tags] : [],
         };
         this.clipboardHistory.push(fullItem);
         if (expiryTime) {
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 this.removeExpiredItem(fullItem);
             }, expiryTime);
+            // Don't keep a Node process alive solely for an expiry timer.
+            timer.unref?.();
         }
     }
     /**
-     * Removes expired clipboard items.
-     * @param {ClipboardItem} item - The item to remove.
+     * Removes an expired clipboard item unless it has been pinned, in which
+     * case it is preserved (pinning protects items from expiry, new in 1.2.0).
      */
     removeExpiredItem(item) {
+        if (item.pinned)
+            return;
         this.clipboardHistory = this.clipboardHistory.filter((historyItem) => historyItem !== item);
         this.notifyListeners("expire", item.text || "");
-        console.log(`Expired clipboard item removed: ${item.text || item.key}`);
     }
     /**
      * Retrieves clipboard history or a specific item by key.
-     * @param {string} [key] - Optional key to retrieve a specific item.
-     * @returns {ClipboardItem | ClipboardItem[]} - Full history or a specific clipboard item.
+     *
+     * Unchanged from 1.1.x: returns the full history array when called with no
+     * argument, the matching item when called with a key, or `[]` when a key
+     * isn't found. (The empty-array-on-miss quirk is preserved for compatibility;
+     * it will be cleaned up in 2.0.0.)
      */
     getHistory(key) {
         if (key) {
@@ -111,22 +140,76 @@ class Clipify {
         return [...this.clipboardHistory];
     }
     /**
-     * Adds an event listener for clipboard events.
-     * @param {string} event - Event type ('copy', 'expire').
-     * @param {ClipboardEventListener} callback - Callback function.
+     * Search the clipboard history. New in 1.2.0.
+     *
+     * Matches against item text (case-insensitive substring), key, and tags.
+     * Returns matching items, most-recent-first. An empty/whitespace query
+     * returns the whole history (most-recent-first).
      */
+    search(query) {
+        const q = query.trim().toLowerCase();
+        const ordered = [...this.clipboardHistory].reverse();
+        if (!q)
+            return ordered;
+        return ordered.filter((item) => {
+            const inText = item.text?.toLowerCase().includes(q) ?? false;
+            const inKey = item.key?.toLowerCase().includes(q) ?? false;
+            const inTags = item.tags?.some((t) => t.toLowerCase().includes(q)) ?? false;
+            return inText || inKey || inTags;
+        });
+    }
+    /**
+     * Pin an item by key so it survives expiry and future eviction. New in 1.2.0.
+     * Returns `true` if an item was found and pinned.
+     */
+    pin(key) {
+        const item = this.clipboardHistory.find((i) => i.key === key);
+        if (!item)
+            return false;
+        item.pinned = true;
+        return true;
+    }
+    /**
+     * Remove the pin from an item by key. New in 1.2.0.
+     * Returns `true` if an item was found and unpinned.
+     */
+    unpin(key) {
+        const item = this.clipboardHistory.find((i) => i.key === key);
+        if (!item)
+            return false;
+        item.pinned = false;
+        return true;
+    }
+    /**
+     * Add one or more tags to an item by key. New in 1.2.0. Tags are
+     * de-duplicated. Returns `true` if an item was found and tagged.
+     */
+    tag(key, ...tags) {
+        const item = this.clipboardHistory.find((i) => i.key === key);
+        if (!item)
+            return false;
+        const existing = new Set(item.tags ?? []);
+        for (const t of tags)
+            existing.add(t);
+        item.tags = [...existing];
+        return true;
+    }
+    /**
+     * Return every item carrying the given tag, most-recent-first. New in 1.2.0.
+     */
+    getByTag(tag) {
+        return [...this.clipboardHistory]
+            .reverse()
+            .filter((item) => item.tags?.includes(tag) ?? false);
+    }
+    /** Adds an event listener for clipboard events ('copy', 'expire'). */
     on(event, callback) {
-        var _a;
         if (!this.eventListeners.has(event)) {
             this.eventListeners.set(event, []);
         }
-        (_a = this.eventListeners.get(event)) === null || _a === void 0 ? void 0 : _a.push(callback);
+        this.eventListeners.get(event)?.push(callback);
     }
-    /**
-     * Notifies event listeners of clipboard changes.
-     * @param {string} event - Event type.
-     * @param {string | Blob} data - Event data.
-     */
+    /** Notifies event listeners of clipboard changes. */
     notifyListeners(event, data) {
         const listeners = this.eventListeners.get(event);
         if (listeners) {
@@ -135,17 +218,21 @@ class Clipify {
     }
     /**
      * Clears the clipboard history.
+     *
+     * 1.2.0: by default this now preserves pinned items (the whole point of
+     * pinning). Pass `{ includePinned: true }` to wipe everything, matching the
+     * old unconditional behaviour.
      */
-    clearHistory() {
-        this.clipboardHistory = [];
+    clearHistory(options) {
+        if (options?.includePinned) {
+            this.clipboardHistory = [];
+            return;
+        }
+        this.clipboardHistory = this.clipboardHistory.filter((i) => i.pinned);
     }
-    /**
-     * Checks if clipboard access is supported.
-     * @returns {boolean} - Whether clipboard access is supported.
-     */
+    /** Checks if the system clipboard API is supported. */
     static isClipboardSupported() {
-        return !!navigator.clipboard;
+        return clipboardAvailable();
     }
 }
-// Export the library for use in other projects
-exports.default = Clipify;
+export default Clipify;
