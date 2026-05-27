@@ -21,8 +21,13 @@
     "paste",
     "clipboard-history",
     "clipboard-manager",
+    "copy-to-clipboard",
+    "clipboard-api",
+    "react-clipboard",
+    "clipboard-events",
     "typescript",
-    "ssr"
+    "ssr",
+    "browser"
   ],
   "author": "MindInitiatives",
   "license": "MIT",

@@ -8,6 +8,15 @@ expiry, and supporting event-driven clipboard updates.
 As of **1.2.0** it is also **SSR/Node-safe** and adds **search, pinning, and
 tags** - without breaking any existing API.
 
+```typescript
+import Clipify from "clipify";
+
+const clipboard = new Clipify();
+await clipboard.copy({ text: "hello", key: "greeting", expiryTime: 5000 });
+clipboard.search("hello");   // find it later
+clipboard.pin("greeting");   // protect it from expiry
+```
+
 ---
 
 ## Features
